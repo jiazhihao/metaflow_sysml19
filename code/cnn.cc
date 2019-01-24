@@ -98,6 +98,16 @@ enum DNNModel {
   NMT,
 };
 
+DNNModel name_to_model(std::string name)
+{
+  if (name == "inception") return Inception;
+  if (name == "squeezenet") return SqueezeNet;
+  if (name == "resnet34") return Resnet34;
+  if (name == "resnet50") return Resnet50;
+  if (name == "densenet") return DenseNet;
+  if (name == "rnntc") return RNNTC;
+}
+
 void parse_args(bool &optimize,
                 bool &export_graph,
                 float &alpha,
@@ -107,6 +117,7 @@ void parse_args(bool &optimize,
                 int argc,
                 char **argv)
 {
+  std::string dnnName;
   for (int i = 1; i < argc; i++)
   {
     if (!strcmp(argv[i],"--noopt")) {
@@ -126,6 +137,11 @@ void parse_args(bool &optimize,
       alpha = std::atof(argv[++i]);
       continue;
     }
+    if (!strcmp(argv[i],"--dnn")) {
+      dnnName = std::string(argv[++i]);
+      continue;
+    }
+/*
     if (!strcmp(argv[i],"--squeezenet")) {
       dnnModel = SqueezeNet;
       continue;
@@ -154,9 +170,11 @@ void parse_args(bool &optimize,
       dnnModel = NMT;
       continue;
     }
+*/
     fprintf(stderr, "Found unknown option!!\n");
     assert(0);
   }
+  dnnModel = name_to_model(dnnName);
 }
 
 int main(int argc, char **argv)
