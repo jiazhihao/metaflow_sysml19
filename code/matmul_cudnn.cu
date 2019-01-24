@@ -20,10 +20,12 @@ void Matmul::map(void)
 {
   // create descriptors
   checkCUDNN(cudnnCreateTensorDescriptor(&outputTensor));
-  int inputN = inputs[0].dim[0];
-  int outputC = outputs[0].dim[1];
+  int inputX = inputs[0].dim[0];
+  int inputN = inputs[0].dim[1];
+  int inputC = inputs[0].dim[2];
+  int outputC = outputs[0].dim[2];
   checkCUDNN(cudnnSetTensor4dDescriptor(outputTensor, CUDNN_TENSOR_NCHW,
-      CUDNN_DATA_FLOAT, inputN, outputC, 1, 1));
+      CUDNN_DATA_FLOAT, inputX, inputN, outputC, 1));
   if (actiMode != AC_MODE_NONE) {
     cudnnActivationMode_t mode;
     switch (actiMode) {
@@ -44,7 +46,9 @@ void Matmul::map(void)
         CUDNN_NOT_PROPAGATE_NAN, 0.0));
   }
   // allocate tensors
-  size_t outputSize = sizeof(DATATYPE) * inputN * outputC;
+  size_t filterSize = sizeof(DATATYPE) * inputC * outputC;
+  size_t outputSize = sizeof(DATATYPE) * inputX * inputN * outputC;
+  checkCUDA(cudaMalloc(&filterPtr, filterSize));
   checkCUDA(cudaMalloc(&outputs[0].ptr, outputSize));
 }
 
@@ -54,6 +58,7 @@ void Matmul::unmap(void)
   if (actiMode != AC_MODE_NONE) {
     checkCUDNN(cudnnDestroyActivationDescriptor(actiDesc));
   }
+  checkCUDA(cudaFree(filterPtr));
   checkCUDA(cudaFree(outputs[0].ptr));
 }
 
@@ -61,11 +66,13 @@ void Matmul::forward(void)
 {
   const float alpha = 1.0f;
   const float beta = 0.0f;
-  int inputN = inputs[0].dim[0];
-  int inputC = inputs[0].dim[1];
-  int outputC = outputs[0].dim[1];
+  int inputX = inputs[0].dim[0];
+  int inputN = inputs[0].dim[1];
+  int batch = inputX * inputN;
+  int inputC = inputs[0].dim[2];
+  int outputC = outputs[0].dim[2];
   checkCUDA(cublasSgemm(model->blas, CUBLAS_OP_T, CUBLAS_OP_N,
-      outputC, inputN, inputC, &alpha, (float*)inputs[1].ptr, inputC,
+      outputC, batch, inputC, &alpha, (float*)filterPtr, inputC,
       (float*)inputs[0].ptr, inputC, &beta, (float*)outputs[0].ptr, outputC));
   if (actiMode != AC_MODE_NONE)
     checkCUDNN(cudnnActivationForward(model->dnn, actiDesc,
@@ -77,9 +84,11 @@ void Model::measure_matmul_cost(Matmul* mm)
 {
   const float alpha = 1.0f;
   const float beta = 0.0f;
-  int inputN = mm->inputs[0].dim[0];
-  int inputC = mm->inputs[0].dim[1];
-  int outputC = mm->outputs[0].dim[1];
+  int inputX = mm->inputs[0].dim[0];
+  int inputN = mm->inputs[0].dim[1];
+  int batch = inputX * inputN;
+  int inputC = mm->inputs[0].dim[2];
+  int outputC = mm->outputs[0].dim[2];
   if (mm->actiMode != OpBase::AC_MODE_NONE) {
     cudnnActivationMode_t mode;
     switch (mm->actiMode) {
@@ -99,13 +108,13 @@ void Model::measure_matmul_cost(Matmul* mm)
         CUDNN_NOT_PROPAGATE_NAN, 0.0));
   }
   checkCUDNN(cudnnSetTensor4dDescriptor(outputTensor, CUDNN_TENSOR_NCHW,
-      CUDNN_DATA_FLOAT, inputN, outputC, 1, 1));
+      CUDNN_DATA_FLOAT, inputX, inputN, outputC, 1));
 
   checkCUDA(cudaDeviceSynchronize());
   checkCUDA(cudaEventRecord(startEvent));
   for (int i = 0; i < REPEAT_TIMES; i++) {
     checkCUDA(cublasSgemm(blas, CUBLAS_OP_T, CUBLAS_OP_N,
-        outputC, inputN, inputC, &alpha, filterPtr, inputC,
+        outputC, batch, inputC, &alpha, filterPtr, inputC,
         inputPtr, inputC, &beta, outputPtr, outputC));
     if (mm->actiMode != OpBase::AC_MODE_NONE)
       checkCUDNN(cudnnActivationForward(dnn, actiDesc,
@@ -117,8 +126,8 @@ void Model::measure_matmul_cost(Matmul* mm)
   float milliseconds;
   cudaEventElapsedTime(&milliseconds, startEvent, endEvent);
   mm->runtime = milliseconds / REPEAT_TIMES;
-  printf("measure[Matmul]: i(%d %d) o(%d) acti(%d) cost(%.4lf)\n",
-         inputN, inputC, outputC,
+  printf("measure[Matmul]: i(%d %d %d) o(%d) acti(%d) cost(%.4lf)\n",
+         mm->inputs[0].dim[0], mm->inputs[0].dim[1], inputC, outputC,
          mm->actiMode, mm->runtime);
 }
 

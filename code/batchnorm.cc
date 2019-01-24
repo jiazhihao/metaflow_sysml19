@@ -18,7 +18,11 @@
 Tensor Graph::batchnorm(Tensor _input)
 {
   Op op = model->get_or_create_batchnorm(_input);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -54,7 +58,7 @@ BatchNorm::BatchNorm(Model* _model, Tensor _input)
 BatchNorm::~BatchNorm(void)
 {}
 
-bool BatchNorm::get_parameter(PMParameter para, int* value)
+bool BatchNorm::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:

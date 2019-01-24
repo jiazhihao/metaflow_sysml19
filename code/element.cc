@@ -15,14 +15,49 @@
 
 #include "ops.h"
 
-Tensor Graph::element(OpBase::OpType type, Tensor t1, Tensor t2)
+Tensor Graph::add(Tensor t1, Tensor t2)
 {
   assert(t1.numDim == t2.numDim);
   for (int i = 0; i < t1.numDim; i++)
     assert(t1.dim[i] == t2.dim[i]);
-  Op op = model->get_or_create_element(type, t1, t2);
-  add_edge(t1.op, op, t1.idx, 0);
-  add_edge(t2.op, op, t2.idx, 1);
+  Op op = model->get_or_create_element(OpBase::OP_EW_ADD, t1, t2);
+  inEdges[op];
+  outEdges[op];
+  {
+    Edge in(t1.idx, t1.op), out(t1.idx, op);
+    inEdges[op].insert(in);
+    outEdges[t1.op].insert(out);
+  }
+  {
+    Edge in(t2.idx, t2.op), out(t2.idx, op);
+    inEdges[op].insert(in);
+    outEdges[t2.op].insert(out);
+  }
+  printf("inEdges[guid = %zu ptr = %p]\n", op.guid, op.ptr);
+  Tensor t = op.ptr->outputs[0];
+  t.op = op;
+  return t;
+}
+
+Tensor Graph::mul(Tensor t1, Tensor t2)
+{
+  assert(t1.numDim == t2.numDim);
+  for (int i = 0; i < t1.numDim; i++)
+    assert(t1.dim[i] == t2.dim[i]);
+  Op op = model->get_or_create_element(OpBase::OP_EW_MUL, t1, t2);
+  inEdges[op];
+  outEdges[op];
+  {
+    Edge in(t1.idx, t1.op), out(t1.idx, op);
+    inEdges[op].insert(in);
+    outEdges[t1.op].insert(out);
+  }
+  {
+    Edge in(t2.idx, t2.op), out(t2.idx, op);
+    inEdges[op].insert(in);
+    outEdges[t2.op].insert(out);
+  }
+  printf("inEdges[guid = %zu ptr = %p]\n", op.guid, op.ptr);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -59,7 +94,7 @@ Element::Element(Model* _model, OpType _type,
 Element::~Element(void)
 {}
 
-bool Element::get_parameter(PMParameter para, int* value)
+bool Element::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:

@@ -33,7 +33,7 @@ Tensor fire_complex(Graph* graph, Tensor input, int squeeze, int expand)
   else {
     t2 = graph->conv2d(input, 2 * expand, 1, 1, 1, 1, 0, 0, true);
   }
-  return graph->element(OpBase::OP_EW_ADD, t1, t2);
+  return graph->add(t1, t2);
 }
 
 Graph* SqueezeNetComplex(Model* model)

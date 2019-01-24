@@ -27,8 +27,13 @@ Tensor Graph::concat(int n, Tensor* _inputs)
   for (int i = 0; i < n; i++)
     needCopy[i] = true;
   Op op = model->get_or_create_concat(n, _inputs, needCopy);
-  for (int i = 0; i < n; i++) 
-    add_edge(_inputs[i].op, op, _inputs[i].idx, i);
+  inEdges[op];
+  outEdges[op];
+  for (int i = 0; i < n; i++) {
+    Edge in(_inputs[i].idx, _inputs[i].op), out(_inputs[i].idx, op);
+    inEdges[op].insert(in);
+    outEdges[_inputs[i].op].insert(out);
+  }
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -73,7 +78,7 @@ Concat::Concat(Model* _model, int n, Tensor* _inputs, bool* _needCopy)
 Concat::~Concat(void)
 {}
 
-bool Concat::get_parameter(PMParameter para, int* value)
+bool Concat::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:
