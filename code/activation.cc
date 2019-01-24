@@ -18,7 +18,11 @@
 Tensor Graph::relu(Tensor _input, bool _inPlace)
 {
   Op op = model->get_or_create_activation(_input, OpBase::OP_RELU, _inPlace);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -27,7 +31,11 @@ Tensor Graph::relu(Tensor _input, bool _inPlace)
 Tensor Graph::sigmoid(Tensor _input, bool _inPlace)
 {
   Op op = model->get_or_create_activation(_input, OpBase::OP_SIGMOID, _inPlace);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -63,7 +71,7 @@ Activation::~Activation(void)
 {
 }
 
-bool Activation::get_parameter(PMParameter para, int* value)
+bool Activation::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:

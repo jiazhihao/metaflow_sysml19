@@ -58,32 +58,23 @@ class Model;
 class OpBase;
 struct Op {
   Op(void);
-  bool operator==(const Op& b) const {
-    if (guid != b.guid) return false;
-    if (ptr != b.ptr) return false;
-    return true;
-  }
-  bool operator<(const Op& b) const {
-    if (guid != b.guid) return guid < b.guid;
-    if (ptr != b.ptr) return ptr < b.ptr;
-    return true;
-  }
+  //bool operator==(const Op& b) const;
+  //bool operator<(const Op& b) const;
   size_t guid;
   OpBase* ptr;
 };
 
 struct Edge {
-  Edge(Op _srcOp, Op _dstOp, int _srcIdx, int _dstIdx);
-  int srcIdx, dstIdx;
-  Op srcOp, dstOp;
+  Edge(int _idx, Op _op);
+  int idx;
+  Op op;
 };
 
 struct EdgeCompare {
   bool operator()(const Edge& a, const Edge& b) const {
-    if (!(a.srcOp == b.srcOp)) return a.srcOp < b.srcOp;
-    if (!(a.dstOp == b.dstOp)) return a.dstOp < b.dstOp;
-    if (a.srcIdx != b.srcIdx) return a.srcIdx < b.srcIdx;
-    if (a.dstIdx != b.dstIdx) return a.dstIdx < b.dstIdx;
+    if (a.op.guid != b.op.guid) return a.op.guid < b.op.guid;
+    if (a.op.ptr != b.op.ptr) return a.op.ptr < b.op.ptr;
+    if (a.idx != b.idx) return a.idx < b.idx;
     return false;
   };
 };
@@ -96,49 +87,11 @@ struct OpCompare {
 };
 
 struct Tensor {
-  Tensor(void)
-  : numDim(0), idx(0), op(), ptr(NULL) {}
   //bool operator==(const Tensor& b);
   int numDim, dim[MAX_DIM];
   int idx; // idx is used for Ops with multiple outputs (e.g., split)
   Op op;
-  DATATYPE* ptr;
-};
-
-enum PMParameter {
-  PM_OP_TYPE,   	// AnyOp
-  PM_NUM_INPUTS,	// AnyOp
-  PM_NUM_OUTPUTS,	// AnyOp
-  PM_KERNEL_H,		// Conv2D, Pool2D
-  PM_KERNEL_W,		// Conv2D, Pool2D
-  PM_STRIDE_H,		// Conv2D, Pool2D
-  PM_STRIDE_W,		// Conv2D, Pool2D
-  PM_PAD_H,		// Conv2D, Pool2D
-  PM_PAD_W,		// Conv2D, Pool2D
-  PM_RELU,		// Conv2D, Pool2D
-};
-
-enum TNParameter {
-  IN_0 = 100,
-  IN_1 = 101,
-  IN_2 = 102,
-  IN_3 = 103,
-  IN_4 = 104,
-  IN_5 = 105,
-  OU_0 = 200,
-  OU_1 = 201,
-  OU_2 = 202,
-  OU_3 = 203,
-  OU_4 = 204,
-  OU_5 = 205,
-};
-
-enum DIMParameter {
-  DIM_0 = 300,
-  DIM_1 = 301,
-  DIM_2 = 302,
-  DIM_3 = 303,
-  DIM_ND = 310,
+  void* ptr;
 };
 
 class OpBase {
@@ -159,8 +112,18 @@ public:
     OP_EW_ADD,
     OP_EW_MUL,
     OP_MATMUL,
-    OP_SCALARMUL,
-    OP_ENLARGECONV,
+  };
+  enum OpParameter {
+    PM_OP_TYPE,			// AnyOp
+    PM_NUM_INPUTS, 		// AnyOp
+    PM_NUM_OUTPUTS,		// AnyOp
+    PM_KERNEL_H,		// Conv2D, Pool2D
+    PM_KERNEL_W,		// Conv2D, Pool2D
+    PM_STRIDE_H,		// Conv2D, Pool2D
+    PM_STRIDE_W,		// Conv2D, Pool2D
+    PM_PAD_H,			// Conv2D, Pool2D
+    PM_PAD_W,			// Conv2D, Pool2D
+    PM_RELU,			// Conv2D, Pool2D
   };
   enum ActiMode {
     AC_MODE_NONE,
@@ -168,16 +131,11 @@ public:
     AC_MODE_RELU,
     AC_MODE_TANH,
   };
-  enum PaddingMode {
-    PD_MODE_SAME,
-    PD_MODE_VALID,
-  };
 
   OpBase(Tensor input, Model* _model, OpType _type);
   OpBase(Tensor input0, Tensor input1, Model* _model, OpType _type);
   OpBase(int n, Tensor* inputs, Model* _model, OpType _type);
-  virtual bool get_input_parameter(TNParameter, DIMParameter, int*);
-  virtual bool get_parameter(PMParameter, int*) = 0;
+  virtual bool get_parameter(OpParameter, int*) = 0;
   virtual void forward(void) = 0;
   virtual void map(void) = 0;
   virtual void unmap(void) = 0;
@@ -194,18 +152,11 @@ public:
 class Graph {
 public:
   Graph(Model *_model);
-  void add_edge(Op srcOp, Op dstOp, int srcIdx, int dstIdx);
-  bool has_edge(Op srcOp, Op dstOp, int srcIdx, int dstIdx);
   void export_to_file(std::string file_name);
-  // This conv2d will create a weight tensor
   Tensor conv2d(Tensor _input, int _outputC, int _kernelH, int _kernelW,
                 int _strideH, int _strideW, int _padH, int _padW,
                 bool _relu = false);
-  Tensor conv2d(Tensor _input, Tensor _weight, int _strideH, int _strideW,
-                int _padH, int _padW, bool _relu = false);
-  Tensor fc(Tensor _input, int _outputC,
-            OpBase::ActiMode _actiMode = OpBase::AC_MODE_NONE);
-  Tensor matmul(Tensor _input, Tensor _weight,
+  Tensor matmul(Tensor _input, int _outputC,
                 OpBase::ActiMode _actiMode = OpBase::AC_MODE_NONE);
   Tensor pool2d_max(Tensor _input, int _kernelH, int _kernelW,
                     int _strideH, int _strideW, int _padH, int _padW,
@@ -220,9 +171,11 @@ public:
   void split(Tensor _input, int c1, int c2, Tensor* outputs);
   void split(Tensor _input, int num, int* channels, Tensor* outputs);
   Tensor noop(Tensor _input);
-  Tensor element(OpBase::OpType type, Tensor _t1, Tensor _t2);
+  Tensor add(Tensor _t1, Tensor _t2);
+  Tensor mul(Tensor _t1, Tensor _t2);
   size_t num_in_edges(Op op);
   size_t num_out_edges(Op op);
+  bool has_edge(Op src, Op dst, int idx);
   size_t hash(void);
   void print(void);
   bool check_correctness(void);
@@ -244,14 +197,14 @@ public:
 
 class Conv2D : public OpBase {
 public:
-  Conv2D(Model* _model, Tensor _input, Tensor _weight,
-         int _strideH, int _strideW,
+  Conv2D(Model* _model, Tensor _input, int _outputC,
+         int _kernelH, int _kernelW, int _strideH, int _strideW,
          int _padH, int _padW, bool _relu);
   ~Conv2D(void);
   void forward(void);
   void map(void);
   void unmap(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void collect_costs(float& exe_time, float& flops, float& mem_acc, int& num_kernels);
 #ifdef USE_CUDNN
   cudnnConvolutionFwdAlgo_t selectForwardAlgorithm(void);
@@ -269,20 +222,20 @@ public:
   std::vector<std::array<void*, dnnResourceNumber>> rsrcList;
   int fwdAlgo; // Placeholder, should never use this in mkl.
 #endif
-  int strideH, strideW, padH, padW;
+  int outputC, kernelH, kernelW, strideH, strideW, padH, padW;
   bool relu;
-  void *biasPtr;
+  void *biasPtr, *filterPtr;
 };
 
 class Matmul : public OpBase {
 public:
-  Matmul(Model* _model, Tensor _input, Tensor _weight,
+  Matmul(Model* _model, Tensor _input, int _outputC,
          ActiMode _actiMode);
   ~Matmul(void);
   void forward(void);
   void map(void);
   void unmap(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void collect_costs(float& exe_time, float& flops, float& mem_acc, int& num_kernels);
 public:
   int outputC;
@@ -291,6 +244,7 @@ public:
   cudnnTensorDescriptor_t outputTensor;
   cudnnActivationDescriptor_t actiDesc;
 #endif
+  void *filterPtr;
 };
 
 class Pool2D : public OpBase {
@@ -300,7 +254,7 @@ public:
          int _strideH, int _strideW,
          int _padH, int _padW, bool _relu);
   ~Pool2D(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -323,7 +277,7 @@ class Activation : public OpBase {
 public:
   Activation(Model* _model, Tensor _input, OpType _type, bool _inPlace);
   ~Activation(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -340,7 +294,7 @@ class BatchNorm : public OpBase {
 public:
   BatchNorm(Model* _model, Tensor _input);
   ~BatchNorm(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -360,7 +314,7 @@ class Concat : public OpBase {
 public:
   Concat(Model* _model, int n, Tensor* _inputs, bool* _needCopy);
   ~Concat(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -373,7 +327,7 @@ class Split : public OpBase {
 public:
   Split(Model* _model, Tensor _input, int n, int* channels);
   ~Split(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -386,7 +340,7 @@ class NoOp : public OpBase {
 public:
   NoOp(Model* _model, Tensor _input);
   ~NoOp(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -397,7 +351,7 @@ class Element : public OpBase {
 public:
   Element(Model* _model, OpType _type, Tensor _t1, Tensor _t2);
   ~Element(void);
-  bool get_parameter(PMParameter para, int*);
+  bool get_parameter(OpParameter para, int*);
   void forward(void);
   void map(void);
   void unmap(void);
@@ -412,7 +366,7 @@ public:
 // keys are (inputN, inputC, inputH, inputW, outputC, kernelH, kernelW,              
 //           strideH, strideW, padH, padW, relu)
 struct Conv2DKey {
-  Conv2DKey(Tensor, Tensor, int, int, int, int, bool);
+  Conv2DKey(Tensor, int, int, int, int, int, int, int, bool);
   int keys[12];
 };
 
@@ -428,13 +382,13 @@ struct Conv2DCompare {
 // keys are (inputX, inputN, inputC, outputC, acti)
 //
 struct MatmulKey {
-  MatmulKey(Tensor, Tensor, OpBase::ActiMode);
-  int keys[4];
+  MatmulKey(Tensor, int, OpBase::ActiMode);
+  int keys[5];
 };
 
 struct MatmulCompare {
   bool operator()(const MatmulKey& a, const MatmulKey& b) const {
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 5; i++)
       if (a.keys[i] != b.keys[i])
         return a.keys[i] < b.keys[i];
     return false;
@@ -550,10 +504,11 @@ struct ElementCompare {
 class Model {
 public:
   Model(bool);
-  Op get_or_create_conv2d(Tensor _input, Tensor _weight,
+  Op get_or_create_conv2d(Tensor _input, int _outputC,
+                          int _kernelH, int _kernelW,
                           int _strideH, int _strideW,
                           int _padH, int _padW, bool _relu);
-  Op get_or_create_matmul(Tensor _input, Tensor _weight,
+  Op get_or_create_matmul(Tensor _input, int _outputC,
                           OpBase::ActiMode _actimode);
   Op get_or_create_pool2d(Tensor _input, OpBase::OpType _type,
                           int _kernelH, int _kernelW,

@@ -23,7 +23,11 @@ Tensor Graph::pool2d_max(Tensor _input,
   Op op = model->get_or_create_pool2d(
               _input, OpBase::OP_POOL2D_MAX, _kernelH, _kernelW,
               _strideH, _strideW, _padH, _padW, _relu);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -37,7 +41,11 @@ Tensor Graph::pool2d_avg(Tensor _input,
   Op op = model->get_or_create_pool2d(
               _input, OpBase::OP_POOL2D_AVG, _kernelH, _kernelW,
               _strideH, _strideW, _padH, _padW, _relu);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -98,7 +106,7 @@ Pool2D::~Pool2D(void)
 {
 }
 
-bool Pool2D::get_parameter(PMParameter para, int* value)
+bool Pool2D::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:

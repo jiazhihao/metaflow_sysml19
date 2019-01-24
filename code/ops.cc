@@ -38,9 +38,11 @@ Op::Op(void)
   ptr = NULL;
 }
 
-Edge::Edge(Op _srcOp, Op _dstOp, int _srcIdx, int _dstIdx)
-: srcOp(_srcOp), dstOp(_dstOp), srcIdx(_srcIdx), dstIdx(_dstIdx)
-{}
+Edge::Edge(int _idx, Op _op)
+{
+  idx = _idx;
+  op = _op;
+}
 
 /*
 bool Tensor::operator==(const Tensor& b)
@@ -90,65 +92,12 @@ OpBase::OpBase(int n, Tensor* _inputs, Model* _model, OpType _type)
   }
 }
 
-bool OpBase::get_input_parameter(TNParameter tnp, DIMParameter dim, int* value)
-{
-  int inputIdx = 0, dimIdx = 0;
-  switch (tnp) {
-    case IN_5:
-      inputIdx++;
-    case IN_4:
-      inputIdx++;
-    case IN_3:
-      inputIdx++;
-    case IN_2:
-      inputIdx++;
-    case IN_1:
-      inputIdx++;
-    case IN_0:
-      break;
-    default:
-      return false;
-  }
-  if (inputIdx >= numInputs) return false;
-  switch (dim) {
-    case DIM_3:
-      dimIdx ++;
-    case DIM_2:
-      dimIdx ++;
-    case DIM_1:
-      dimIdx ++;
-    case DIM_0:
-      break;
-    case DIM_ND:
-      *value = inputs[inputIdx].numDim;
-      return true;
-    default:
-      return false;
-  }
-  if (dimIdx >= inputs[inputIdx].numDim) return false;
-  *value = inputs[inputIdx].dim[dimIdx];
-  return true;
-}
-
 Graph::Graph(Model *_model)
 : model(_model), totalCost(-1.0f)
 {
   //size_t inputSize = sizeof(DATATYPE) * n * c * h * w;
   //checkCUDA(cudaMalloc(&input.ptr, inputSize));
   //printf("Initialize a graph\n");
-}
-
-void Graph::add_edge(Op srcOp, Op dstOp, int srcIdx, int dstIdx)
-{
-  if (inEdges.find(dstOp) == inEdges.end()) {
-    inEdges[dstOp];
-  }
-  if (outEdges.find(srcOp) == outEdges.end()) {
-    outEdges[srcOp];
-  }
-  Edge e(srcOp, dstOp, srcIdx, dstIdx);
-  inEdges[dstOp].insert(e);
-  outEdges[srcOp].insert(e);
 }
 
 // We do this in topological order because it will be easier to parse on
@@ -165,7 +114,7 @@ void Graph::export_to_file(std::string file_name)
     std::set<Edge, EdgeCompare> inList = it->second;
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = inList.begin(); it2 != inList.end(); it2++) {
-      if (it2->srcOp.guid > 0) cnt ++;
+      if (it2->op.guid > 0) cnt ++;
     }
     todos[it->first] = cnt;
     if (todos[it->first] == 0)
@@ -181,8 +130,8 @@ void Graph::export_to_file(std::string file_name)
     std::set<Edge, EdgeCompare> outList = outEdges[op];
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = outList.begin(); it2 != outList.end(); it2++) {
-      todos[it2->dstOp] --;
-      if (todos[it2->dstOp] == 0) opList.push_back(it2->dstOp);
+      todos[it2->op] --;
+      if (todos[it2->op] == 0) opList.push_back(it2->op);
     }
   }
   export_fs.close();
@@ -206,9 +155,9 @@ void Graph::export_op(ofstream &file_stream, Op &op)
   std::set<Edge, EdgeCompare>::const_iterator it;
   int i = 0;
   for (it = inList.begin(); it != inList.end(); it++) {
-    deps_string += std::to_string(it->srcOp.guid);
+    deps_string += std::to_string(it->op.guid);
     deps_string += ':';
-    deps_string += std::to_string(it->srcIdx);
+    deps_string += std::to_string(it->idx);
     deps_string += ',';
     i++;
   }
@@ -223,15 +172,14 @@ void Graph::export_op(ofstream &file_stream, Op &op)
     { 
       Conv2D* conv = (Conv2D*) op.ptr;
       Tensor t = conv->inputs[0];
-      Tensor w = conv->inputs[1];
 
       file_stream << t.dim[0] << ','; // 0
       file_stream << t.dim[1] << ','; // 1
       file_stream << t.dim[2] << ','; // 2
       file_stream << t.dim[3] << ','; // 3
-      file_stream << w.dim[0] << ','; // 4
-      file_stream << w.dim[2] << ','; // 5
-      file_stream << w.dim[3] << ','; // 6
+      file_stream << conv->outputC << ','; // 4
+      file_stream << conv->kernelH << ','; // 5
+      file_stream << conv->kernelW << ','; // 6
       file_stream << conv->strideH << ','; // 7
       file_stream << conv->strideW << ','; // 8
       file_stream << conv->padH << ','; // 9
@@ -315,10 +263,10 @@ size_t Graph::num_out_edges(Op op)
   return outEdges[op].size();
 }
 
-bool Graph::has_edge(Op srcOp, Op dstOp, int srcIdx, int dstIdx)
+bool Graph::has_edge(Op src, Op dst, int idx)
 {
-  Edge e(srcOp, dstOp, srcIdx, dstIdx);
-  return (inEdges[dstOp].find(e) != inEdges[dstOp].end());
+  Edge e(idx, src);
+  return (inEdges[dst].find(e) != inEdges[dst].end());
 }
 
 size_t Graph::hash(void)
@@ -326,16 +274,14 @@ size_t Graph::hash(void)
   size_t total = 0;
   std::map<Op, std::set<Edge, EdgeCompare>, OpCompare>::const_iterator it;
   for (it = inEdges.begin(); it != inEdges.end(); it++) {
-    size_t my = 17 * 31 + (size_t)(it->first.ptr);
+    size_t my = (size_t)(it->first.ptr);
     std::set<Edge, EdgeCompare> list = it->second;
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = list.begin(); it2 != list.end(); it2++) {
       Edge e = *it2;
-      my = my * 31 + std::hash<size_t>()((size_t)(e.srcOp.ptr));
-      my = my * 31 + std::hash<int>()(e.srcIdx);
-      my = my * 31 + std::hash<int>()(e.dstIdx);
+      my += (size_t)(e.op.ptr) * (e.idx + 1);
     }
-    total += my;
+    total += my * my;
   }
   return total;
 }
@@ -345,12 +291,14 @@ void Graph::print(void)
   std::map<Op, std::set<Edge, EdgeCompare>, OpCompare>::const_iterator it;
   for (it = inEdges.begin(); it != inEdges.end(); it++) {
     if (it->first.guid == 0) continue;
-    printf("	guid(%d) type(%d) runtime(%.4lf) op_ptr(%x): ", it->first.guid, it->first.ptr->type, it->first.ptr->runtime, it->first.ptr);
+    printf("	guid(%zu) type(%d) runtime(%.4lf) op_ptr(%p): ",
+           it->first.guid, it->first.ptr->type,
+           it->first.ptr->runtime, it->first.ptr);
     std::set<Edge, EdgeCompare> list = it->second;
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = list.begin(); it2 != list.end(); it2++) {
       Edge e = *it2;
-      printf(" inEdge(guid(%d) idx(%d))", e.srcOp.guid, e.srcIdx);
+      printf(" inEdge(guid(%zu) idx(%d))", e.op.guid, e.idx);
     }
     printf("\n");
   }
@@ -365,7 +313,7 @@ bool Graph::check_correctness(void)
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = list.begin(); it2 != list.end(); it2++) {
       Edge e = *it2;
-      if (!has_edge(e.srcOp, e.dstOp, e.srcIdx, e.dstIdx)) okay = false;
+      if (!has_edge(it->first, e.op, e.idx)) okay = false;
     }
   }
   return okay;
@@ -394,7 +342,7 @@ float Graph::run(Model* model)
     std::set<Edge, EdgeCompare> inList = it->second;
     std::set<Edge, EdgeCompare>::const_iterator it2;
     for (it2 = inList.begin(); it2 != inList.end(); it2++) {
-      if (it2->srcOp.guid > 0) cnt ++;
+      if (it2->op.guid > 0) cnt ++;
     }
     todos[it->first] = cnt;
     if (todos[it->first] == 0) opList.push_back(it->first);
@@ -407,111 +355,110 @@ float Graph::run(Model* model)
     std::set<Edge, EdgeCompare>::const_iterator it2;
     assert(inList.size() > 0);
     OpBase* opPtr = NULL;
-    // Step 1: prepare inputs
-    Tensor inputs[MAX_NUM_INPUTS];
-    if (op.ptr->type == OpBase::OP_NOOP) {
-      assert(inList.size() == 1);
+    if (inList.size() == 1) {
       Edge e = *inList.begin();
-      assert(e.srcOp.ptr == NULL); // NoOp's input must not be any Op
-      Tensor t = op.ptr->inputs[0];
-      size_t size = sizeof(DATATYPE);
-      for (int j = 0; j < t.numDim; j++)
-        size *= t.dim[j];
-      t.ptr = (DATATYPE*) model->allocate_memory(size);
-      inputs[0] = t;
-    } else {
+      Tensor t;
+      if (e.op.ptr == NULL) {
+        // Allocate input tensor
+        t = op.ptr->inputs[0];
+        size_t size = sizeof(DATATYPE);
+        for (int j = 0; j < t.numDim; j++)
+          size *= t.dim[j];
+        t.ptr = model->allocate_memory(size);
+      } else {
+        int idx = 0;
+        for (idx = 0; idx < opList.size(); idx++)
+          if (opList[idx].guid == e.op.guid) break;
+        assert(idx < i);
+        t = opBaseList[idx]->outputs[e.idx];
+      }
+      switch (op.ptr->type) {
+        case OpBase::OP_CONV2D:
+        {
+          Conv2D* conv = (Conv2D*) op.ptr;
+          opPtr = new Conv2D(model, t, conv->outputC,
+                             conv->kernelH, conv->kernelW,
+                             conv->strideH, conv->strideW,
+                             conv->padH, conv->padW, conv->relu);
+#ifdef USE_CUDNN
+          ((Conv2D*)opPtr)->fwdAlgo = conv->fwdAlgo;
+#endif
+          break;
+        }
+        case OpBase::OP_MATMUL:
+        {
+          Matmul* matmul = (Matmul*) op.ptr;
+          opPtr = new Matmul(model, t, matmul->outputC, matmul->actiMode);
+          break;
+        }
+        case OpBase::OP_POOL2D_MAX:
+        case OpBase::OP_POOL2D_AVG:
+        {
+          Pool2D* pool = (Pool2D*) op.ptr;
+          opPtr = new Pool2D(model, t, pool->type,
+                             pool->kernelH, pool->kernelW,
+                             pool->strideH, pool->strideW,
+                             pool->padH, pool->padW, pool->relu);
+          break;
+        }
+        case OpBase::OP_RELU:
+        case OpBase::OP_SIGMOID:
+        {
+          Activation* act = (Activation*) op.ptr;
+          opPtr = new Activation(model, t, act->type, act->inPlace);
+          break;
+        }
+        case OpBase::OP_BATCHNORM:
+        {
+          opPtr = new BatchNorm(model, t);
+          break;
+        }
+        case OpBase::OP_SPLIT:
+        {
+          Split* split = (Split*) op.ptr;
+          opPtr = new Split(model, t, split->numOutputs, split->channels);
+          break;
+        }
+        case OpBase::OP_NOOP:
+          opPtr = new NoOp(model, t);
+          break;
+        default:
+          printf("op.type = %d\n", op.ptr->type);
+          assert(false);
+      }
+    } else if (op.ptr->type == OpBase::OP_CONCAT) {
+      Concat* concat = (Concat*) op.ptr;
+      Tensor inputs[MAX_NUM_INPUTS];
+      int idx = 0;
       for (it2 = inList.begin(); it2 != inList.end(); it2++) {
         int idx2 = 0;
-        for (idx2 = 0; idx2 < opList.size(); idx2++) {
-          if (opList[idx2].guid == it2->srcOp.guid) break;
-        }
+        for (idx2 = 0; idx2 < opList.size(); idx2++)
+          if (opList[idx2].guid == it2->op.guid) break;
         assert(idx2 < i);
-        assert(inputs[it2->dstIdx].ptr == NULL); // No duplicated dstIdxes
-        inputs[it2->dstIdx] = opBaseList[idx2]->outputs[it2->srcIdx];
+        inputs[idx++] = opBaseList[idx2]->outputs[it2->idx];
       }
+      opPtr = new Concat(model, idx, inputs, concat->needCopy);
+    } else {
+      // Must be element-wise
+      assert(inList.size() == 2);
+      assert(op.ptr->type == OpBase::OP_EW_ADD || op.ptr->type == OpBase::OP_EW_MUL);
+      Element* e = (Element*) op.ptr;
+      Tensor inputs[MAX_NUM_INPUTS];
+      int idx = 0;
+      for (it2 = inList.begin(); it2 != inList.end(); it2++) {
+        int idx2 = 0;
+        for (idx2 = 0; idx2 < opList.size(); idx2++)
+          if (opList[idx2].guid == it2->op.guid) break;
+        assert(idx2 < i);
+        inputs[idx++] = opBaseList[idx2]->outputs[it2->idx];
+      }
+      opPtr = new Element(model, op.ptr->type, inputs[0], inputs[1]);
     }
-    // Step 2: create Ops
-    switch (op.ptr->type) {
-      case OpBase::OP_CONV2D:
-      {
-        Conv2D* conv = (Conv2D*) op.ptr;
-        assert(inList.size() == 2);
-        opPtr = new Conv2D(model, inputs[0], inputs[1],
-                           conv->strideH, conv->strideW,
-                           conv->padH, conv->padW, conv->relu);
-#ifdef USE_CUDNN
-        ((Conv2D*)opPtr)->fwdAlgo = conv->fwdAlgo;
-#endif
-        break;
-      }
-      case OpBase::OP_MATMUL:
-      {
-        Matmul* matmul = (Matmul*) op.ptr;
-        assert(inList.size() == 2);
-        opPtr = new Matmul(model, inputs[0], inputs[1], matmul->actiMode);
-        break;
-      }
-      case OpBase::OP_EW_ADD:
-      case OpBase::OP_EW_MUL:
-      {
-        Element* element = (Element*) op.ptr;
-        assert(inList.size() == 2);
-        opPtr = new Element(model, op.ptr->type, inputs[0], inputs[1]);
-        break;
-      }
-      case OpBase::OP_POOL2D_MAX:
-      case OpBase::OP_POOL2D_AVG:
-      {
-        Pool2D* pool = (Pool2D*) op.ptr;
-        assert(inList.size() == 1);
-        opPtr = new Pool2D(model, inputs[0], pool->type,
-                           pool->kernelH, pool->kernelW,
-                           pool->strideH, pool->strideW,
-                           pool->padH, pool->padW, pool->relu);
-        break;
-      }
-      case OpBase::OP_RELU:
-      case OpBase::OP_SIGMOID:
-      {
-        Activation* act = (Activation*) op.ptr;
-        assert(inList.size() == 1);
-        opPtr = new Activation(model, inputs[0], act->type, act->inPlace);
-        break;
-      }
-      case OpBase::OP_BATCHNORM:
-      {
-        opPtr = new BatchNorm(model, inputs[0]);
-        break;
-      }
-      case OpBase::OP_SPLIT:
-      {
-        Split* split = (Split*) op.ptr;
-        assert(inList.size() == 1);
-        opPtr = new Split(model, inputs[0], split->numOutputs, split->channels);
-        break;
-      }
-      case OpBase::OP_NOOP:
-      {
-        assert(inList.size() == 1);
-        opPtr = new NoOp(model, inputs[0]);
-        break;
-      }
-      case OpBase::OP_CONCAT:
-      {
-        Concat* concat = (Concat*) op.ptr;
-        opPtr = new Concat(model, inList.size(), inputs, concat->needCopy);
-        break;
-      }
-      default:
-        printf("op.type = %d\n", op.ptr->type);
-        assert(false);
-    }
-    // Step 3: map new Op
     opPtr->map();
     opBaseList.push_back(opPtr);
     for (it2 = outList.begin(); it2 != outList.end(); it2++) {
-      todos[it2->dstOp] --;
-      if (todos[it2->dstOp] == 0) opList.push_back(it2->dstOp);
+      todos[it2->op] --;
+      if (todos[it2->op] == 0) opList.push_back(it2->op);
     }
   }
   assert(opList.size() == inEdges.size());

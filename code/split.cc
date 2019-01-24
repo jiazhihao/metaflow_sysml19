@@ -21,7 +21,11 @@ void Graph::split(Tensor _input, int _num, int* _channels, Tensor* outputs)
   for (int i = 0; i < n; i++)
     channels[i] = _channels[i];
   Op op = model->get_or_create_split(_input, n, channels);
-  add_edge(_input.op, op, _input.idx, 0);
+  inEdges[op];
+  outEdges[op];
+  Edge in(_input.idx, _input.op), out(_input.idx, op);
+  inEdges[op].insert(in);
+  outEdges[_input.op].insert(out);
   for (int i = 0; i < n; i++) {
     outputs[i] = op.ptr->outputs[i];
     outputs[i].op = op;
@@ -77,7 +81,7 @@ Split::Split(Model* _model, Tensor _input, int n, int* _channels)
 Split::~Split(void)
 {}
 
-bool Split::get_parameter(PMParameter para, int* value)
+bool Split::get_parameter(OpParameter para, int* value)
 {
   switch (para) {
     case PM_OP_TYPE:
@@ -98,8 +102,8 @@ void Split::map(void)
 {
   size_t offset = 0;
   for (int i = 0; i < numOutputs; i++) {
-    outputs[i].ptr = (DATATYPE*)inputs[0].ptr + offset;
-    size_t size = 1;
+    outputs[i].ptr = (char*)inputs[0].ptr + offset;
+    size_t size = sizeof(DATATYPE);
     for (int j = 0; j < outputs[i].numDim; j++)
       size *= outputs[i].dim[j];
     offset += size;

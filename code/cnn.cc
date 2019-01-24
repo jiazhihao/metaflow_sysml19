@@ -22,7 +22,7 @@
 #include "sru.h"
 #include <cstring> 
 
-Graph* example(Model* model)
+int example(Model* model)
 {
   Graph *graph = new Graph(model);
   Tensor input;
@@ -34,11 +34,9 @@ Graph* example(Model* model)
   input.op.guid = 0;
   input.op.ptr = NULL;
   input.idx = 0;
-  input = graph->noop(input);
   Tensor t = graph->conv2d(input, 384, 3, 3, 1, 1, 1, 1, true);
   Tensor t1 = graph->conv2d(t, 384, 3, 3, 1, 1, 1, 1, true);
   Tensor t2 = graph->conv2d(t, 384, 3, 3, 1, 1, 1, 1, true);
-  return graph;
 }
 
 Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
@@ -48,7 +46,6 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
   xfers.push_back(create_fuse_conv_relu_xfer(model));
   xfers.push_back(create_merge_conv_xfer(model));
   xfers.push_back(create_exclusive_concat_xfer(model));
-  //xfers.push_back(create_enlarge_conv_xfer(model));
   xfers.push_back(create_resnet_merge_xfer(model));
 
   std::priority_queue<Graph*, std::vector<Graph*>, GraphCompare> candidates;
@@ -92,10 +89,10 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
 
 enum DNNModel {
   None,
-  Example,
   SqueezeNet,
   Inception,
-  ResNet,
+  Resnet34,
+  Resnet50,
   DenseNet,
   RNNTC,
   NMT,
@@ -129,10 +126,6 @@ void parse_args(bool &optimize,
       alpha = std::atof(argv[++i]);
       continue;
     }
-    if (!strcmp(argv[i],"--example")) {
-      dnnModel = Example;
-      continue;
-    }
     if (!strcmp(argv[i],"--squeezenet")) {
       dnnModel = SqueezeNet;
       continue;
@@ -141,8 +134,12 @@ void parse_args(bool &optimize,
       dnnModel = Inception;
       continue;
     }
-    if (!strcmp(argv[i],"--resnet")) {
-      dnnModel = ResNet;
+    if (!strcmp(argv[i],"--resnet34")) {
+      dnnModel = Resnet34;
+      continue;
+    }
+    if (!strcmp(argv[i],"--resnet50")) {
+      dnnModel = Resnet50;
       continue;
     }
     if (!strcmp(argv[i],"--densenet")) {
@@ -177,17 +174,17 @@ int main(int argc, char **argv)
   Model* model = new Model(false/*training*/);
   Graph* graph = NULL;
   switch (dnn) {
-    case Example:
-      graph = example(model);
-      break;
     case SqueezeNet:
       graph = SqueezeNetComplex(model);
       break;
     case Inception:
       graph = InceptionV3(model);
       break;
-    case ResNet:
+    case Resnet34:
       graph = ResNet34(model);
+      break;
+    case Resnet50:
+      graph = ResNet50(model);
       break;
     case DenseNet:
       graph = DenseNet121(model);
@@ -201,9 +198,10 @@ int main(int argc, char **argv)
     default:
       assert(false);
   }
+  //Graph* graph = inceptionE(model, 2048);
 #ifdef TRT
   void runGraphTRT(Graph *graph);
-  runGraphTRT(graph);
+  //runGraphTRT(graph);
 #endif
   if (optimize && dnn == RNNTC) {
     graph->print_costs();
@@ -224,5 +222,15 @@ int main(int argc, char **argv)
 #ifdef TRT
   runGraphTRT(graph);
 #endif
+  //inceptionE(model, 2048);
+  //inceptionE(model, 1280);
+  //inceptionD(model);
+  //inceptionC(model, 192);
+  //inceptionC(model, 160);
+  //inceptionC(model, 128);
+  //inceptionB(model);
+  //inceptionA(model, 288, 64);
+  //inceptionA(model, 256, 64);
+  //inceptionA(model, 192, 32);
   return 0;
 }

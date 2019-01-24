@@ -26,30 +26,25 @@ struct SRUTensors {
 
 SRUTensors SRUNode(Graph* graph, Tensor x, Tensor c)
 {
-  assert(false);
-  //Tensor x1 = graph->matmul(x, EMBED_SIZE);
-  //Tensor x2 = graph->matmul(x, EMBED_SIZE);
-  //Tensor f = graph->sigmoid(x2);
-  //Tensor x3 = graph->matmul(x, EMBED_SIZE);
-  //Tensor r = graph->sigmoid(x3);
+  Tensor x1 = graph->matmul(x, EMBED_SIZE);
+  Tensor x2 = graph->matmul(x, EMBED_SIZE);
+  Tensor f = graph->sigmoid(x2);
+  Tensor x3 = graph->matmul(x, EMBED_SIZE);
+  Tensor r = graph->sigmoid(x3);
   SRUTensors outputs;
-  //outputs.c = graph->element(OpBase::OP_EW_ADD,
-  //                           graph->element(OpBase::OP_EW_MUL, f, c),
-  //                           graph->element(OpBase::OP_EW_MUL, f, x1));
-  //outputs.h = graph->element(OpBase::OP_EW_ADD,
-  //                           graph->element(OpBase::OP_EW_MUL, r, outputs.c),
-  //                           graph->element(OpBase::OP_EW_MUL, r, x));
+  outputs.c = graph->add(graph->mul(f, c), graph->mul(f, x1));
+  outputs.h = graph->add(graph->mul(r, outputs.c), graph->mul(r, x));
+  //outputs.x = outputs.h;
   return outputs;
 }
 
 SRUTensors SRUOpt(Graph* graph, Tensor x, Tensor c)
 {
-  assert(false);
-  //Tensor f = graph->matmul(x, EMBED_SIZE, OpBase::AC_MODE_SIGMOID);
-  //Tensor r = graph->matmul(x, EMBED_SIZE, OpBase::AC_MODE_SIGMOID);
+  Tensor f = graph->matmul(x, EMBED_SIZE, OpBase::AC_MODE_SIGMOID);
+  Tensor r = graph->matmul(x, EMBED_SIZE, OpBase::AC_MODE_SIGMOID);
   SRUTensors outputs;
-  //outputs.c = graph->mul(graph->add(c, r), f);
-  //outputs.h = graph->mul(r, graph->add(outputs.c, x));
+  outputs.c = graph->mul(graph->add(c, r), f);
+  outputs.h = graph->mul(r, graph->add(outputs.c, x));
   return outputs;
 }
 

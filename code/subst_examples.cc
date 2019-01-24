@@ -15,34 +15,13 @@
 
 #include "subst_examples.h"
 // ===================================================
-// Rule: merge_two_convs
-// ===================================================
-
-GraphXfer* create_merge_two_convs(Model* model)
-{
-  GraphXfer* subst = new GraphXfer(model);
-  TensorX i4 = subst->new_tensor();
-  TensorX w1 = subst->new_tensor();
-  TensorX w2 = subst->new_tensor();
-  OpX* conv1 = subst->create_conv2d(i4, w1, 3, 3, 1, 1, 1, 1, false);
-  OpX* conv2 = subst->create_conv2d(i4, w2, 3, 3, 1, 1, 1, 1, false);
-  OpX* concat = subst->create_concat(w1, w2, 0, false/*isSrc*/);
-  OpX* conv3 = subst->create_conv2d(i4, concat->outputs[0],
-                                    3, 3, 1, 1, 1, 1, false/*relu*/, false/*isSrc*/);
-  OpX* split = subst->create_split(concat, conv3->outputs[0], 1, false/*isSrc*/);
-  subst->map_output(conv1->outputs[0], split->outputs[0]);
-  subst->map_output(conv2->outputs[0], split->outputs[1]);
-  return subst;
-}
-
-// ===================================================
 // Rule: fuse_conv_batch
 // ===================================================
 GraphXfer* create_fuse_conv_batch_xfer(Model* model)
 {
   GraphXfer* subst = new GraphXfer(model);
   SrcOp* conv1 = new SrcOp(OpBase::OP_CONV2D);
-  conv1->add_constraint(COMPARE_EQ, PM_RELU, false);
+  conv1->add_constraint(COMPARE_EQ, OpBase::PM_RELU, false);
   SrcOp* bn1 = new SrcOp(OpBase::OP_BATCHNORM);
   subst->add_src_op(conv1);
   subst->add_src_op(bn1);
@@ -67,14 +46,16 @@ Op FuseConvReluDstOp::create_operator(Model* model)
   assert(srcOps[0]->mapOp.ptr != NULL);
   Conv2D* conv = (Conv2D*) srcOps[0]->mapOp.ptr;
   Tensor input = conv->inputs[0];
-  Tensor weight = conv->inputs[1];
+  int outputC = conv->outputC;
+  int kernelH = conv->kernelH;
+  int kernelW = conv->kernelW;
   int strideH = conv->strideH;
   int strideW = conv->strideW;
   int padH = conv->padH;
   int padW = conv->padW;
   bool relu = true;
-  Op newConv = model->get_or_create_conv2d(input, weight,
-                   strideH, strideW, padH, padW, relu);
+  Op newConv = model->get_or_create_conv2d(input, outputC, kernelH,
+                   kernelW, strideH, strideW, padH, padW, relu);
   return newConv;
 }
 
@@ -99,8 +80,6 @@ MergeConvDstOp::MergeConvDstOp(const SrcOp* _conv1, const SrcOp* _conv2)
 
 Op MergeConvDstOp::create_operator(Model* model)
 {
-  assert(false);
-/*
   assert(srcOps[0]->type == OpBase::OP_CONV2D);
   assert(srcOps[1]->type == OpBase::OP_CONV2D);
   assert(srcOps[0]->mapOp.ptr != NULL);
@@ -120,8 +99,8 @@ Op MergeConvDstOp::create_operator(Model* model)
   int kernelW = max(conv1->kernelW, conv2->kernelW);
   int strideH = conv1->strideH;
   int strideW = conv1->strideW;
-  int padH = min(conv1->padH, conv2->padH);
-  int padW = min(conv1->padW, conv2->padW);
+  int padH = max(conv1->padH, conv2->padH);
+  int padW = max(conv1->padW, conv2->padW);
   bool relu = conv1->relu;
   for (int i = 2; i < conv1->outputs[0].numDim; i++)
     assert(conv1->outputs[0].dim[i] == conv2->outputs[0].dim[i]);
@@ -129,7 +108,6 @@ Op MergeConvDstOp::create_operator(Model* model)
   Op newConv = model->get_or_create_conv2d(input, outputC, kernelH,
                    kernelW, strideH, strideW, padH, padW, relu);
   return newConv;
-*/
 }
 
 SameOp::SameOp(const SrcOp* op)
@@ -188,13 +166,13 @@ GraphXfer* create_merge_conv_xfer(Model* model)
   subst->add_src_op(conv2);
   subst->add_src_edge(op1, conv1);
   subst->add_src_edge(op1, conv2);
-  //subst->add_constraint(COMPARE_EQ, conv1, PM_KERNEL_H, conv2, PM_KERNEL_H);
-  //subst->add_constraint(COMPARE_EQ, conv1, PM_KERNEL_W, conv2, PM_KERNEL_W);
-  subst->add_constraint(COMPARE_EQ, conv1, PM_STRIDE_H, conv2, PM_STRIDE_H);
-  subst->add_constraint(COMPARE_EQ, conv1, PM_STRIDE_W, conv2, PM_STRIDE_W);
-  //subst->add_constraint(COMPARE_EQ, conv1, PM_PAD_H, conv2, PM_PAD_H);
-  //subst->add_constraint(COMPARE_EQ, conv1, PM_PAD_W, conv2, PM_PAD_W);
-  subst->add_constraint(COMPARE_EQ, conv1, PM_RELU, conv2, PM_RELU);
+  //subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_KERNEL_H, conv2, OpBase::PM_KERNEL_H);
+  //subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_KERNEL_W, conv2, OpBase::PM_KERNEL_W);
+  subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_STRIDE_H, conv2, OpBase::PM_STRIDE_H);
+  subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_STRIDE_W, conv2, OpBase::PM_STRIDE_W);
+  //subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_PAD_H, conv2, OpBase::PM_PAD_H);
+  //subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_PAD_W, conv2, OpBase::PM_PAD_W);
+  subst->add_constraint(COMPARE_EQ, conv1, OpBase::PM_RELU, conv2, OpBase::PM_RELU);
   DstOp* op2 = new SameOp(op1);
   DstOp* conv3 = new MergeConvDstOp(conv1, conv2);
   DstOp* split = new SplitOp(conv1, conv2);
@@ -222,8 +200,6 @@ Conv3x3Op::Conv3x3Op(const SrcOp* op1)
 
 Op Conv3x3Op::create_operator(Model* model)
 {
-  assert(false);
-/*
   assert(srcOps[0]->type == OpBase::OP_CONV2D);
   assert(srcOps[0]->mapOp.ptr != NULL);
   Conv2D* conv1 = (Conv2D*) srcOps[0]->mapOp.ptr;
@@ -231,15 +207,14 @@ Op Conv3x3Op::create_operator(Model* model)
                         conv1->outputC, 3, 3, conv1->strideH, conv1->strideW,
                         1, 1, conv1->relu);
   return newConv;
-*/
 }
 
 GraphXfer* create_enlarge_conv_xfer(Model* model)
 {
   GraphXfer* subst = new GraphXfer(model);
   SrcOp* op1 = new SrcOp(OpBase::OP_CONV2D);
-  op1->add_constraint(COMPARE_LT, PM_KERNEL_H, 4);
-  op1->add_constraint(COMPARE_LT, PM_KERNEL_W, 4);
+  op1->add_constraint(COMPARE_LT, OpBase::PM_KERNEL_H, 4);
+  op1->add_constraint(COMPARE_LT, OpBase::PM_KERNEL_W, 4);
   subst->add_src_op(op1);
   DstOp* op2 = new Conv3x3Op(op1);
   subst->add_dst_op(op2);
@@ -272,11 +247,11 @@ GraphXfer* create_exclusive_concat_xfer(Model* model)
 {
   GraphXfer* subst = new GraphXfer(model);
   SrcOp* op1 = new SrcOp(OpBase::OP_ANY);
-  op1->add_constraint(COMPARE_NE, PM_OP_TYPE, OpBase::OP_SPLIT);
+  op1->add_constraint(COMPARE_NE, OpBase::PM_OP_TYPE, OpBase::OP_SPLIT);
   SrcOp* op2 = new SrcOp(OpBase::OP_ANY);
-  op2->add_constraint(COMPARE_NE, PM_OP_TYPE, OpBase::OP_SPLIT);
+  op2->add_constraint(COMPARE_NE, OpBase::PM_OP_TYPE, OpBase::OP_SPLIT);
   SrcOp* concat1 = new SrcOp(OpBase::OP_CONCAT);
-  concat1->add_constraint(COMPARE_EQ, PM_NUM_INPUTS, 2);
+  concat1->add_constraint(COMPARE_EQ, OpBase::PM_NUM_INPUTS, 2);
   subst->add_src_op(op1);
   subst->add_src_op(op2);
   subst->add_src_op(concat1);
@@ -305,12 +280,14 @@ GraphXfer* create_resnet_merge_xfer(Model* model)
   subst->add_src_op(conv1);
   subst->add_src_op(op1);
   subst->add_src_op(add1);
+  subst->add_src_edge(op1, conv1);
   subst->add_src_edge(op1, add1);
   subst->add_src_edge(conv1, add1);
   DstOp* conv2 = new SameOp(conv1);
   DstOp* op2 = new SameOp(op1);
   subst->add_dst_op(conv2);
   subst->add_dst_op(op2);
+  subst->add_dst_edge(op2, conv2);
   subst->map_input(op1, op2);
   subst->map_input(conv1, conv2);
   subst->map_output(op1, op2);

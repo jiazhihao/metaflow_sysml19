@@ -217,8 +217,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--xla", help="Whether to run with TensorFlowXLA optimizations", action="store_true")
 parser.add_argument("--model_file", help="The file from which to load the model")
 parser.add_argument("--print_tensorboard", help="Name of folder to output the tensorboard information")
-parser.add_argument("--iterations", help="How many iterations to average for timing (default 5000)", type=int, default=50)
-parser.add_argument("--discard_iter", help="How many iterations to not time during warm up (default 1000)", type=int, default=10)
+parser.add_argument("--iterations", help="How many iterations to average for timing (default 5000)", type=int, default=5000)
+parser.add_argument("--discard_iter", help="How many iterations to not time during warm up (default 1000)", type=int, default=1000)
 args = parser.parse_args()
 
 input_shape = []
@@ -256,6 +256,10 @@ if (len(graph_outputs) == 0):
   print("Could not read the graph!!!")
   assert(0)
 
+graph_outputs = set()
+for output in recent_outputs:
+  graph_outputs.add(output)
+
 output_nodes = []
 for graph_output in graph_outputs:
   output_nodes.append(operator_map[graph_output])
@@ -273,7 +277,7 @@ with tf.Session(config=config) as sess:
     t0 = time.time()
     sess.run(output_nodes, {operator_map[(0,0)]: input_data})
     t1 = time.time()
-    print(str(t1 - t0) + " seconds")
+    #print(str(t1 - t0) + " seconds")
     times.append(t1 - t0)
 
   total = 0
