@@ -34,7 +34,7 @@ void Conv2D::map(void)
       CUDNN_DATA_FLOAT, 1, outputC, 1, 1));
   checkCUDNN(cudnnSetFilter4dDescriptor(filterDesc, CUDNN_DATA_FLOAT,
       CUDNN_TENSOR_NCHW, outputC, inputC, kernelH, kernelW));
-  checkCUDNN(cudnnSetConvolutionMathType(convDesc, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION));
+  //checkCUDNN(cudnnSetConvolutionMathType(convDesc, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION));
   checkCUDNN(cudnnSetConvolution2dDescriptor(convDesc, padH, padW,
       strideH, strideW, 1/*dilationH*/, 1/*dilationW*/,
       CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));
@@ -116,7 +116,7 @@ void Model::measure_conv2d_cost(Conv2D* conv)
       CUDNN_DATA_FLOAT, 1, outputC, 1, 1));
   checkCUDNN(cudnnSetFilter4dDescriptor(filterDesc, CUDNN_DATA_FLOAT,
       CUDNN_TENSOR_NCHW, outputC, inputC, conv->kernelH, conv->kernelW));
-  checkCUDNN(cudnnSetConvolutionMathType(convDesc, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION));
+  //checkCUDNN(cudnnSetConvolutionMathType(convDesc, CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION));
   checkCUDNN(cudnnSetConvolution2dDescriptor(convDesc, conv->padH, conv->padW,
       conv->strideH, conv->strideW, 1/*dilationH*/, 1/*dilationW*/,
       CUDNN_CROSS_CORRELATION, CUDNN_DATA_FLOAT));

@@ -12,9 +12,9 @@ LDFLAGS_GPU = -lcudnn -lcublas
 LDFLAGS_CPU = -L$(MKLPATH)/lib -lmklml_intel -liomp5
 LDFLAGS_TRT = $(LDFLAGS_GPU) -L$(TRTPATH)/lib -lnvinfer
 
-BIN_GPU = cnn_cuda
-BIN_CPU = cnn_mkl
-BIN_TRT = cnn_trt
+BIN_GPU = mf
+BIN_CPU = mf_mkl
+BIN_TRT = mf_trt
 
 gpu: $(BIN_GPU)
 
