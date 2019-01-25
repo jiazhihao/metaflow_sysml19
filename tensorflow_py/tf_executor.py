@@ -215,16 +215,16 @@ def parse_operator(line1, line2, line3, line4, operator_map, graph_outputs):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--xla", help="Whether to run with TensorFlowXLA optimizations", action="store_true")
-parser.add_argument("--model_file", help="The file from which to load the model")
+parser.add_argument("--graph_file", help="The file from which to load the graph")
 parser.add_argument("--print_tensorboard", help="Name of folder to output the tensorboard information")
 parser.add_argument("--iterations", help="How many iterations to average for timing (default 5000)", type=int, default=5000)
-parser.add_argument("--discard_iter", help="How many iterations to not time during warm up (default 1000)", type=int, default=1000)
+parser.add_argument("--discard_iter", help="How many iterations to discard timing information during warm up (default 1000)", type=int, default=1000)
 args = parser.parse_args()
 
 input_shape = []
 graph_outputs = set()
 
-with open(args.model_file, 'r') as graph_file:
+with open(args.graph_file, 'r') as graph_file:
   # The graph nodes are repesented by 4 lines
   operator_map = {}
   need_input = True
