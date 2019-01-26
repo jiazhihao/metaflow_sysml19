@@ -38,6 +38,7 @@ Tensor fire_complex(Graph* graph, Tensor input, int squeeze, int expand)
 
 Graph* SqueezeNetComplex(Model* model)
 {
+  printf("Create SqueezeNet graph with complex bypass.\n");
   Graph *graph = new Graph(model);
   Tensor input;
   input.numDim = 4;

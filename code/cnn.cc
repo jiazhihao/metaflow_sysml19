@@ -54,8 +54,8 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
   hashmap.insert(graph->hash());
   Graph *bestGraph = graph;
   float bestCost = graph->total_cost();
-  printf("baselineCost = %.4lfms\n", bestCost);
-  printf("baselineGraph: end-to-end runtime = %.4lfms\n", graph->run(model));
+  //printf("baselineCost = %.4lfms\n", bestCost);
+  printf("Baseline Graph:\n    End-to-end runtime = %.4lfms\n", graph->run(model));
   graph->print_costs();
 
   int counter = 0;
@@ -67,12 +67,18 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
       bestCost = subGraph->total_cost();
       bestGraph = subGraph;
     }
+    if (subGraph->total_cost() > alpha * bestCost) {
+      delete subGraph;
+      continue;
+    }
     if (counter > budget) {
       // TODO: free all remaining candidates when budget exhausted 
       break;
     }
+#ifdef VERBOSE
     if (counter % 100 == 0)
       printf("[%d] cost = %.4lf bestCost = %.4lf candidates.size() = %zu\n", counter, subGraph->total_cost(), bestCost, candidates.size());
+#endif
     counter ++;
     for (int i = 0; i < xfers.size(); i++)
       xfers[i]->run(0, subGraph, candidates, hashmap, bestCost * alpha);
@@ -80,8 +86,7 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
       delete subGraph;
     }
   }
-  printf("bestCost = %.4lf\n", bestCost);
-  printf("bestGraph: end-to-end runtime = %.2lf\n", bestGraph->run(model));
+  printf("Optimized Graph:\n    End-to-end runtime = %.4lfms\n", bestGraph->run(model));
   bestGraph->print_costs();
 
   return bestGraph;
@@ -106,6 +111,7 @@ DNNModel name_to_model(std::string name)
   if (name == "resnet50") return Resnet50;
   if (name == "densenet") return DenseNet;
   if (name == "rnntc") return RNNTC;
+  assert(false);
 }
 
 void parse_args(bool &optimize,
@@ -181,8 +187,8 @@ int main(int argc, char **argv)
 {
   bool optimize = true;
   bool export_graph = false;
-  int budget = 1024 * 2; // 2K candidates
-  float alpha = 1.05;
+  int budget = 300; // 300 candidates
+  float alpha = 1.01;
   DNNModel dnn = None;
   std::string export_file_name;
   parse_args(optimize, export_graph, alpha, budget, export_file_name, dnn, argc, argv);
@@ -210,9 +216,6 @@ int main(int argc, char **argv)
     case RNNTC:
       graph = RNNTC_SRU(model);
       break;
-    case NMT:
-      graph = NMT_SRU(model);
-      break;
     default:
       assert(false);
   }
@@ -224,10 +227,6 @@ int main(int argc, char **argv)
   if (optimize && dnn == RNNTC) {
     graph->print_costs();
     graph = RNNTC_OPT(model);
-    printf("bestGraph: end-to-end runtime = %.2lf\n", graph->run(model));
-    graph->print_costs();
-  } else if (optimize && dnn == NMT) {
-    graph = NMT_OPT(model);
     printf("bestGraph: end-to-end runtime = %.2lf\n", graph->run(model));
     graph->print_costs();
   } else if (optimize) {

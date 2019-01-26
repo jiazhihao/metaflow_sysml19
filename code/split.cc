@@ -130,7 +130,9 @@ void Model::measure_split_cost(Split* split)
 {
   // We assume split cost is zero
   split->runtime = 0;
+#ifdef VERBOSE
   printf("measure[split]: cost(%.4lf)\n", split->runtime);
+#endif
 }
 
 // key is (inputN, input H, inputW, n, outputC[0...,n-1]

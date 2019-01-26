@@ -127,8 +127,10 @@ void Model::measure_activation_cost(Activation* act)
   float milliseconds;
   cudaEventElapsedTime(&milliseconds, startEvent, endEvent);
   act->runtime = milliseconds / REPEAT_TIMES;
+#ifdef VERBOSE
   printf("measure[Activation]: i(%d %d %d %d) type(%d) cost(%.4lf)\n",
          act->inputs[0].dim[0], act->inputs[0].dim[1], act->inputs[0].dim[2],
          act->inputs[0].dim[3], act->type, act->runtime);
+#endif
 }
 

@@ -50,6 +50,7 @@ SRUTensors SRUOpt(Graph* graph, Tensor x, Tensor c)
 
 Graph* RNNTC_SRU(Model* model)
 {
+  printf("Create RNN Text Classification Graph.\n");
   const int LENGTH = 20;
   const int NUM_LAYERS = 1;
   Graph *graph = new Graph(model);
@@ -102,74 +103,6 @@ Graph* RNNTC_OPT(Model* model)
       sru[0][i] = SRUOpt(graph, xs[i], c);
     else
       sru[0][i] = SRUOpt(graph, xs[i], sru[0][i-1].c);
-  }
-  return graph;
-}
-
-Graph* NMT_SRU(Model* model)
-{
-  const int LENGTH = 40;
-  const int NUM_LAYERS = 2;
-  Graph *graph = new Graph(model);
-  Tensor input;
-  input.numDim = 3;
-  input.dim[0] = 1;
-  input.dim[1] = BATCH_SIZE;
-  input.dim[2] = EMBED_SIZE;
-  input.dim[3] = 0;
-  input.op.guid = 0;
-  input.op.ptr = NULL;
-  input.idx = 0;
-  Tensor xs[LENGTH];
-  for (int i = 0; i < LENGTH; i++) {
-    xs[i] = graph->noop(input);
-  }
-  Tensor c = graph->noop(input);
-  SRUTensors sru[NUM_LAYERS][LENGTH];
-  for (int i = 0; i < LENGTH; i++) {
-    for (int j = 0; j < NUM_LAYERS; j++) {
-      Tensor x_in;
-      if (i < LENGTH / 2)
-        x_in = (j==0) ? xs[i] : sru[j-1][i].h;
-      else
-        x_in = (j==0) ? sru[NUM_LAYERS-1][i-1].h : sru[j-1][i].h;
-      Tensor c_in = (i==0) ? c : sru[j][i-1].c;
-      sru[j][i] = SRUNode(graph, x_in, c_in);
-    }
-  }
-  return graph;
-}
-
-Graph* NMT_OPT(Model* model)
-{
-  const int LENGTH = 40;
-  const int NUM_LAYERS = 2;
-  Graph *graph = new Graph(model);
-  Tensor input;
-  input.numDim = 3;
-  input.dim[0] = 1;
-  input.dim[1] = BATCH_SIZE;
-  input.dim[2] = EMBED_SIZE;
-  input.dim[3] = 0;
-  input.op.guid = 0;
-  input.op.ptr = NULL;
-  input.idx = 0;
-  Tensor xs[LENGTH];
-  for (int i = 0; i < LENGTH; i++) {
-    xs[i] = graph->noop(input);
-  }
-  Tensor c = graph->noop(input);
-  SRUTensors sru[NUM_LAYERS][LENGTH];
-  for (int i = 0; i < LENGTH; i++) {
-    for (int j = 0; j < NUM_LAYERS; j++) {
-      Tensor x_in;
-      if (i < LENGTH / 2)
-        x_in = (j==0) ? xs[i] : sru[j-1][i].h;
-      else
-        x_in = (j==0) ? sru[NUM_LAYERS-1][i-1].h : sru[j-1][i].h;
-      Tensor c_in = (i==0) ? c : sru[j][i-1].c;
-      sru[j][i] = SRUOpt(graph, x_in, c_in);
-    }
   }
   return graph;
 }

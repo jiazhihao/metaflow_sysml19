@@ -56,6 +56,7 @@ Tensor BottleneckBlock(Graph* graph, Tensor input, int outChannels,
 
 Graph* ResNet34(Model* model)
 {
+  printf("Create ResNet-34 graph.\n");
   Graph *graph = new Graph(model);
   Tensor input;
   input.numDim = 4;

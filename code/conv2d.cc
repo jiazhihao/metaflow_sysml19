@@ -26,7 +26,9 @@ Tensor Graph::conv2d(Tensor _input, int _outputC,
   inEdges[op];
   outEdges[op];
   Edge in(_input.idx, _input.op), out(_input.idx, op);
+#ifdef VERBOSE
   printf("inEdges[guid = %zu ptr = %p]\n", op.guid, op.ptr);
+#endif
   inEdges[op].insert(in);
   outEdges[_input.op].insert(out);
   Tensor t = op.ptr->outputs[0];
@@ -68,8 +70,10 @@ Conv2D::Conv2D(Model* _model, Tensor _input, int _outputC,
   padH(_padH), padW(_padW), relu(_relu)
 {
   assert(_input.numDim == 4);
+#ifdef VERBOSE
   printf("k(%d %d) pad(%d %d) stride(%d %d)\n",
          kernelH, kernelW, padH, padW, strideH, strideW);
+#endif
   int inputH = _input.dim[2];
   int inputW = _input.dim[3];
   int outputH = 1 + (inputH + 2 * padH - kernelH) / strideH;

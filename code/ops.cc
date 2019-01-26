@@ -474,9 +474,13 @@ void Graph::print_costs(void)
   std::map<Op, std::set<Edge, EdgeCompare>, OpCompare>::const_iterator it;
   for (it = inEdges.begin(); it != inEdges.end(); it++)
     it->first.ptr->collect_costs(exe_time, flops, mem_acc, num_kernels);
-  printf("Cost metrics: exe_time(%.4lf) flops(%.4lf) "
-         "memory_access(%.4lf) kernel_launches(%d)\n",
-         exe_time, flops / 1024.0 / 1024.0 / 1024.0,
-         mem_acc * 4.0 / 1024.0 / 1024.0, num_kernels);
+  printf("    Estimated runtime = %.4lf ms\n", exe_time);
+  printf("    Floating point operations = %.4lf Gflop\n", flops / 1024 / 1024 / 1024);
+  printf("    Memory accesses = %.4lf MB\n", mem_acc * 4.0 / 1024 / 1024);
+  printf("    GPU kernel launches = %d\n", num_kernels);
+  //printf("Cost metrics: exe_time(%.4lf) flops(%.4lf) "
+  //       "memory_access(%.4lf) kernel_launches(%d)\n",
+  //       exe_time, flops / 1024.0 / 1024.0 / 1024.0,
+  //       mem_acc * 4.0 / 1024.0 / 1024.0, num_kernels);
 }
 

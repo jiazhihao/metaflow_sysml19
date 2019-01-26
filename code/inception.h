@@ -111,6 +111,7 @@ Tensor inceptionE(Graph* graph, Tensor input)
 
 Graph* InceptionV3(Model* model)
 {
+  printf("Create InceptionV3 graph.\n");
   Graph *graph = new Graph(model);
   Tensor input;
   input.numDim = 4;

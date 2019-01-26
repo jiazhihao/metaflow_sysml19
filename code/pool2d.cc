@@ -91,8 +91,10 @@ Pool2D::Pool2D(Model* _model, Tensor _input, OpType _type,
   int inputW = _input.dim[3];
   int outputH = 1 + (inputH + 2 * padH - kernelH) / strideH;
   int outputW = 1 + (inputW + 2 * padW - kernelW) / strideW;
+#ifdef VERBOSE
   printf("k(%d %d) pad(%d %d) s(%d %d)\n",
          kernelH, kernelW, padH, padW, strideH, strideW);
+#endif
   numOutputs = 1;
   outputs[0].numDim = 4;
   outputs[0].dim[0] = BATCH_SIZE;

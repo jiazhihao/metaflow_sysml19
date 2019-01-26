@@ -25,7 +25,7 @@ Model::Model(bool training)
   workSpaceSize = WORK_SPACE_SIZE;
   global_unique_id = 100;
   checkCUDA(cudaMalloc(&workSpace, workSpaceSize));
-  printf("handle.workSpace = 0x%p\n", workSpace);
+  //printf("handle.workSpace = 0x%p\n", workSpace);
   // create all descriptors
   checkCUDNN(cudnnCreateTensorDescriptor(&inputTensor));
   checkCUDNN(cudnnCreateTensorDescriptor(&biasTensor));

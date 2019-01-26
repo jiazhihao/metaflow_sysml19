@@ -33,7 +33,9 @@ Tensor Graph::add(Tensor t1, Tensor t2)
     inEdges[op].insert(in);
     outEdges[t2.op].insert(out);
   }
+#ifdef VERBOSE
   printf("inEdges[guid = %zu ptr = %p]\n", op.guid, op.ptr);
+#endif
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;
@@ -57,7 +59,9 @@ Tensor Graph::mul(Tensor t1, Tensor t2)
     inEdges[op].insert(in);
     outEdges[t2.op].insert(out);
   }
+#ifdef VERBOSE
   printf("inEdges[guid = %zu ptr = %p]\n", op.guid, op.ptr);
+#endif
   Tensor t = op.ptr->outputs[0];
   t.op = op;
   return t;

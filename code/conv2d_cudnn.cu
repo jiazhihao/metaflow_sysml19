@@ -148,10 +148,12 @@ void Model::measure_conv2d_cost(Conv2D* conv)
       workSpace, workSpaceSize));
   assert(cnt > 0);
   checkCUDNN(perfResults[0].status);
+#ifdef VERBOSE
   for (int i = 0; i < cnt; i++) {
     printf("fwdAlgo(%d) time(%.2lfms) space(%zuMB)\n", perfResults[i].algo,
            perfResults[i].time, perfResults[i].memory / 1024 / 1024);
   }
+#endif
   conv->fwdAlgo = perfResults[0].algo;
  
   checkCUDA(cudaDeviceSynchronize());
@@ -177,8 +179,10 @@ void Model::measure_conv2d_cost(Conv2D* conv)
   float milliseconds;
   cudaEventElapsedTime(&milliseconds, startEvent, endEvent);
   conv->runtime = milliseconds / REPEAT_TIMES;
+#ifdef VERBOSE
   printf("measure[Conv2D]: i(%d %d %d %d) o(%d) k(%d %d) s(%d %d) p(%d %d) cost(%.4lf)\n",
          BATCH_SIZE, inputC, inputH, inputW, outputC, conv->kernelH, conv->kernelW,
          conv->strideH, conv->strideW, conv->padH, conv->padW, conv->runtime);
+#endif
 }
 

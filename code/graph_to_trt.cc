@@ -343,7 +343,8 @@ void runGraphTRT(Graph *graph) {
   }
 
   total /= numberRun;
-  std::cout << "Average over " << numberRun << " runs is " << total << " ms." << std::endl;
+  std::cout << "Optimized Graph on TensorRT:" << std::endl;
+  std::cout << "    Average over " << numberRun << " runs is " << total << " ms." << std::endl;
 
   for (int bindingIdx = 0; bindingIdx < nbBindings; ++bindingIdx) {
     checkCUDA(cudaFree(buffers[bindingIdx]));
@@ -351,7 +352,7 @@ void runGraphTRT(Graph *graph) {
 
   context->destroy();
   engine->destroy();
-  gProfiler.printLayerTimes();
+  //gProfiler.printLayerTimes();
 }
 
 #endif

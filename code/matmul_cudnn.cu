@@ -126,8 +126,10 @@ void Model::measure_matmul_cost(Matmul* mm)
   float milliseconds;
   cudaEventElapsedTime(&milliseconds, startEvent, endEvent);
   mm->runtime = milliseconds / REPEAT_TIMES;
+#ifdef VERBOSE
   printf("measure[Matmul]: i(%d %d %d) o(%d) acti(%d) cost(%.4lf)\n",
          mm->inputs[0].dim[0], mm->inputs[0].dim[1], inputC, outputC,
          mm->actiMode, mm->runtime);
+#endif
 }
 
