@@ -225,9 +225,12 @@ int main(int argc, char **argv)
   //runGraphTRT(graph);
 #endif
   if (optimize && dnn == RNNTC) {
+    printf("Baseline Graph:\n");
+    printf("    End-to-end runtime = %.4lf\n", graph->run(model));
     graph->print_costs();
     graph = RNNTC_OPT(model);
-    printf("bestGraph: end-to-end runtime = %.2lf\n", graph->run(model));
+    printf("Optimized Graph:\n"); 
+    printf("    End-to-end runtime = %.4lf\n", graph->run(model));
     graph->print_costs();
   } else if (optimize) {
     graph = optimize_graph(graph, model, alpha, budget);
