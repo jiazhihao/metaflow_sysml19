@@ -153,7 +153,9 @@ bool GraphXfer::map_output(SrcOp* src, DstOp* dst)
 
 void GraphXfer::run(int depth, Graph* graph,
                     std::priority_queue<Graph*, std::vector<Graph*>, GraphCompare>& candidates,
-                    std::set<size_t>& hashmap, float threshold)
+                    std::set<size_t>& hashmap, float threshold,
+                    std::map<Edge, int, EdgeCompare>& edgeWeights,
+                    bool collectEdgeWeights)
 {
   if (depth >= srcOps.size()) {
     // Check two op constraints
@@ -181,6 +183,22 @@ void GraphXfer::run(int depth, Graph* graph,
         default:
           assert(false);
       }
+    }
+    // collect edge usages
+    if (collectEdgeWeights) {
+      std::map<Op, std::set<Edge, EdgeCompare>, OpCompare>::const_iterator opIt;
+      for (opIt = graph->inEdges.begin(); opIt != graph->inEdges.end(); opIt++)
+        if (mapped.find(opIt->first) != mapped.end()) {
+          std::set<Edge, EdgeCompare> list = opIt->second;
+          std::set<Edge, EdgeCompare>::const_iterator it;
+          for (it = list.begin(); it != list.end(); it++)
+            if (mapped.find(it->op) != mapped.end()) {
+              if (edgeWeights.find(*it) == edgeWeights.end())
+                edgeWeights[*it] = 1;
+              else
+                edgeWeights[*it] ++;
+            }
+        }
     }
     // Generate a new graph by applying xfer rule
     if (pass) {
@@ -225,7 +243,7 @@ void GraphXfer::run(int depth, Graph* graph,
         if (pass) {
           srcOp->mapOp = op;
           mapped.insert(op);
-          run(depth + 1, graph, candidates, hashmap, threshold);
+          run(depth + 1, graph, candidates, hashmap, threshold, edgeWeights, collectEdgeWeights);
           mapped.erase(op);
           srcOp->mapOp.guid = 0;
           srcOp->mapOp.ptr = NULL;
@@ -312,3 +330,11 @@ Graph* GraphXfer::create_new_graph(Graph* graph)
   return newGraph;
 }
 
+void GraphXfer::print_edge_weights(const std::map<Edge, int, EdgeCompare>& edgeWeights)
+{
+  std::map<Edge, int, EdgeCompare>::const_iterator it;
+  for (it = edgeWeights.begin(); it != edgeWeights.end(); it ++) {
+    printf("in-edge: opGuid(%zu) idx(%zu) weight(%d)\n",
+           it->first.op.guid, it->first.idx, it->second);
+  }
+}

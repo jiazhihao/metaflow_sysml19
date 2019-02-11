@@ -114,8 +114,11 @@ public:
   bool map_output(SrcOp* src, DstOp* dst);
   void run(int depth, Graph* graph,
            std::priority_queue<Graph*, std::vector<Graph*>, GraphCompare>&,
-           std::set<size_t>&, float threshold);
+           std::set<size_t>&, float threshold,
+           std::map<Edge, int, EdgeCompare>& edgeWeights,
+           bool collectEdgeWeights = false);
   Graph* create_new_graph(Graph* graph);
+  static void print_edge_weights(const std::map<Edge, int, EdgeCompare>& edgeWeights);
 public:
   Model* model;
   std::vector<TwoOpConstraint> constraints;

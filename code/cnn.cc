@@ -59,6 +59,8 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
   graph->print_costs();
 
   int counter = 0;
+  bool firstGraph = true;
+  std::map<Edge, int, EdgeCompare> edgeWeights;
   while (!candidates.empty()) {
     Graph *subGraph = candidates.top();
     candidates.pop();
@@ -81,7 +83,8 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
 #endif
     counter ++;
     for (int i = 0; i < xfers.size(); i++)
-      xfers[i]->run(0, subGraph, candidates, hashmap, bestCost * alpha);
+      xfers[i]->run(0, subGraph, candidates, hashmap, bestCost * alpha, edgeWeights, firstGraph);
+    firstGraph = false;
     if (bestGraph != subGraph) {
       delete subGraph;
     }
@@ -89,6 +92,7 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
   printf("Optimized Graph:\n    End-to-end runtime = %.4lfms\n", bestGraph->run(model));
   bestGraph->print_costs();
 
+  GraphXfer::print_edge_weights(edgeWeights);
   return bestGraph;
 }
 
