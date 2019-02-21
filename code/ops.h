@@ -124,6 +124,8 @@ public:
     PM_PAD_H,			// Conv2D, Pool2D
     PM_PAD_W,			// Conv2D, Pool2D
     PM_RELU,			// Conv2D, Pool2D
+    PM_OUTPUT_C,
+    PM_ACTI,
   };
   enum ActiMode {
     AC_MODE_NONE,

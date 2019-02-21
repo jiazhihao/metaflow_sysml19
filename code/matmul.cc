@@ -77,6 +77,12 @@ bool Matmul::get_parameter(OpParameter para, int* value)
     case PM_NUM_OUTPUTS:
       *value = numOutputs;
       return true;
+    case PM_OUTPUT_C:
+      *value = outputC;
+      return true;
+    case PM_ACTI:
+      *value = actiMode;
+      return true;
     default:
       return false;
   }

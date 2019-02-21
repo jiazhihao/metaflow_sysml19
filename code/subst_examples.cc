@@ -36,6 +36,36 @@ GraphXfer* create_fuse_conv_batch_xfer(Model* model)
 // ===================================================
 // Relu: fuse_conv_relu
 // ===================================================
+FuseMmActiDstOp::FuseMmActiDstOp(const SrcOp* _mm1, const SrcOp* _acti)
+: DstOp(OpBase::OP_MATMUL, _mm1, _acti)
+{}
+
+Op FuseMmActiDstOp::create_operator(Model* model)
+{
+  assert(srcOps[0]->type == OpBase::OP_MATMUL);
+  assert(srcOps[1]->type == OpBase::OP_SIGMOID);
+  assert(srcOps[0]->mapOp.ptr != NULL);
+  assert(srcOps[1]->mapOp.ptr != NULL);
+  Matmul* mm = (Matmul*) srcOps[0]->mapOp.ptr;
+  Op newMm = model->get_or_create_matmul(mm->inputs[0], mm->outputC, OpBase::AC_MODE_SIGMOID);
+  return newMm;
+}
+
+GraphXfer* create_fuse_mm_acti_xfer(Model* model)
+{
+  GraphXfer* subst = new GraphXfer(model);
+  SrcOp* mm1 = new SrcOp(OpBase::OP_MATMUL);
+  SrcOp* acti1 = new SrcOp(OpBase::OP_SIGMOID);
+  subst->add_src_op(mm1);
+  subst->add_src_op(acti1);
+  subst->add_src_edge(mm1, acti1);
+  DstOp* mm2 = new FuseMmActiDstOp(mm1, acti1);
+  subst->add_dst_op(mm2);
+  subst->map_input(mm1, mm2);
+  subst->map_output(acti1, mm2);
+  return subst;
+}
+
 FuseConvReluDstOp::FuseConvReluDstOp(const SrcOp* _conv1)
 : DstOp(OpBase::OP_CONV2D, _conv1)
 {}
@@ -72,6 +102,25 @@ GraphXfer* create_fuse_conv_relu_xfer(Model* model)
   subst->map_input(conv1, conv2);
   subst->map_output(relu1, conv2);
   return subst;
+}
+
+MergeMatmulDstOp::MergeMatmulDstOp(const SrcOp* _mm1, const SrcOp* _mm2)
+: DstOp(OpBase::OP_MATMUL, _mm1, _mm2)
+{}
+
+Op MergeMatmulDstOp::create_operator(Model* model)
+{
+  assert(srcOps[0]->type == OpBase::OP_MATMUL);
+  assert(srcOps[1]->type == OpBase::OP_MATMUL);
+  assert(srcOps[0]->mapOp.ptr != NULL);
+  assert(srcOps[1]->mapOp.ptr != NULL);
+  Matmul* mm1 = (Matmul*) srcOps[0]->mapOp.ptr;
+  Matmul* mm2 = (Matmul*) srcOps[1]->mapOp.ptr;
+  Tensor input = mm1->inputs[0];
+  assert(mm1->outputC == mm2->outputC);
+  assert(mm1->actiMode == mm2->actiMode);
+  Op newMM = model->get_or_create_matmul(input, mm1->outputC, mm1->actiMode);
+  return newMM;
 }
 
 MergeConvDstOp::MergeConvDstOp(const SrcOp* _conv1, const SrcOp* _conv2)
@@ -153,6 +202,40 @@ Op SplitOp::create_operator(Model* model)
   input.dim[1] = channels[0] + channels[1];
   Op newSplit = model->get_or_create_split(input, 2, channels);
   return newSplit;
+}
+
+GraphXfer* create_merge_mm_xfer(Model* model)
+{
+  GraphXfer* subst = new GraphXfer(model);
+  SrcOp* op1 = new SrcOp(OpBase::OP_ANY);
+  SrcOp* mm1 = new SrcOp(OpBase::OP_MATMUL);
+  SrcOp* mm2 = new SrcOp(OpBase::OP_MATMUL);
+  subst->add_src_op(op1);
+  subst->add_src_op(mm1);
+  subst->add_src_op(mm2);
+  subst->add_src_edge(op1, mm1);
+  subst->add_src_edge(op1, mm2);
+  subst->add_constraint(COMPARE_EQ, mm1, OpBase::PM_OUTPUT_C, mm2, OpBase::PM_OUTPUT_C);
+  subst->add_constraint(COMPARE_EQ, mm1, OpBase::PM_ACTI, mm2, OpBase::PM_ACTI);
+  DstOp* op2 = new SameOp(op1);
+  DstOp* mm3 = new MergeMatmulDstOp(mm1, mm2);
+  DstOp* split = new SplitOp(mm1, mm2);
+  DstOp* noop1 = new NewNoOp(mm1);
+  DstOp* noop2 = new NewNoOp(mm2);
+  subst->add_dst_op(op2);
+  subst->add_dst_op(mm3);
+  subst->add_dst_op(split);
+  subst->add_dst_op(noop1);
+  subst->add_dst_op(noop2);
+  subst->add_dst_edge(op2, mm3);
+  subst->add_dst_edge(mm3, split);
+  subst->add_dst_edge(split, noop1, 0);
+  subst->add_dst_edge(split, noop2, 1);
+  subst->map_input(op1, op2);
+  subst->map_output(op1, op2);
+  subst->map_output(mm1, noop1);
+  subst->map_output(mm2, noop2);
+  return subst;
 }
 
 GraphXfer* create_merge_conv_xfer(Model* model)

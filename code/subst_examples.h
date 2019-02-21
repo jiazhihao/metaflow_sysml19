@@ -22,6 +22,18 @@ public:
   Op create_operator(Model* model);
 };
 
+class FuseMmActiDstOp : public DstOp {
+public:
+  FuseMmActiDstOp(const SrcOp* mm, const SrcOp* acti);
+  Op create_operator(Model* model);
+};
+
+class MergeMatmulDstOp : public DstOp {
+public:
+  MergeMatmulDstOp(const SrcOp* conv1, const SrcOp* conv2);
+  Op create_operator(Model* model);
+};
+
 class MergeConvDstOp : public DstOp {
 public:
   MergeConvDstOp(const SrcOp* conv1, const SrcOp* conv2);
@@ -61,7 +73,9 @@ public:
 };
 
 GraphXfer* create_fuse_conv_batch_xfer(Model* model);
+GraphXfer* create_fuse_mm_acti_xfer(Model* model);
 GraphXfer* create_fuse_conv_relu_xfer(Model* model);
+GraphXfer* create_merge_mm_xfer(Model* model);
 GraphXfer* create_merge_conv_xfer(Model* model);
 GraphXfer* create_enlarge_conv_xfer(Model* model);
 GraphXfer* create_exclusive_concat_xfer(Model* model);

@@ -43,7 +43,9 @@ Graph* optimize_graph(Graph *graph, Model *model, float alpha, int budget)
 {
   std::vector<GraphXfer*> xfers;
   xfers.push_back(create_fuse_conv_batch_xfer(model));
+  xfers.push_back(create_fuse_mm_acti_xfer(model));
   xfers.push_back(create_fuse_conv_relu_xfer(model));
+  xfers.push_back(create_merge_mm_xfer(model));
   xfers.push_back(create_merge_conv_xfer(model));
   xfers.push_back(create_exclusive_concat_xfer(model));
   xfers.push_back(create_resnet_merge_xfer(model));
@@ -228,7 +230,7 @@ int main(int argc, char **argv)
   void runGraphTRT(Graph *graph);
   //runGraphTRT(graph);
 #endif
-  if (optimize && dnn == RNNTC) {
+  if (optimize && dnn == RNNTC && false){
     printf("Baseline Graph:\n");
     printf("    End-to-end runtime = %.4lf\n", graph->run(model));
     graph->print_costs();

@@ -139,8 +139,15 @@ void Model::measure_split_cost(Split* split)
 SplitKey::SplitKey(Tensor input, int n, int* channels)
 {
   keys[0] = input.dim[0];
-  keys[1] = input.dim[2];
-  keys[2] = input.dim[3];
+  if (input.numDim == 4) {
+    keys[1] = input.dim[2];
+    keys[2] = input.dim[3];
+  } else if (input.numDim == 3) {
+    keys[1] = input.dim[2];
+    keys[2] = 0;
+  } else {
+    assert(false);
+  }
   keys[3] = n;
   for (int i = 0; i < n; i++)
     keys[4 + i] = channels[i];
